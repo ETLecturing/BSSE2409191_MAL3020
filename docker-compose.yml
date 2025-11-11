@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: rto-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: restaurantdb
+    # Anything in this folder runs ONE TIME on first startup to init/seed the DB
+    volumes:
+      - mongo_data:/data/db
+      - ./db/seed:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  mongo_data:

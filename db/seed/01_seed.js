@@ -4,14 +4,17 @@
 const dbName = "restaurantdb";
 const db = db.getSiblingDB(dbName);
 
-
+/**
+ * 1) Users
+ * fields: role, name, email, passwordHash, createdAt (timestamps handled by app later)
+ */
 const users = [
   {
     _id: new ObjectId(),
     role: "admin",
     name: "Admin One",
     email: "admin@example.com",
-    // For seeding demo  store a placeholder "hash". Real hashing will be done by backend later.
+    // For seeding demo we store a placeholder "hash". Real hashing will be done by backend later.
     passwordHash: "hashed:Admin123!",
     createdAt: new Date(),
   },

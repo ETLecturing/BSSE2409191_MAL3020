@@ -28,7 +28,7 @@ const users = [
   },
 ];
 
-// 2) Menu_Items
+// 2) Menu Items
 const menuItems = [
   {
     _id: new ObjectId(),
@@ -70,7 +70,7 @@ const menuItems = [
 
 // Write users & menu to DB
 db.users.insertMany(users);
-db.menu_items.insertMany(menuItems);
+db.menuitems.insertMany(menuItems); // ✅ changed from db.menu_items
 
 // 3) Orders (1 sample order for the customer)
 const customer = users.find((u) => u.role === "customer");
@@ -113,5 +113,5 @@ const order = {
 db.orders.insertOne(order);
 
 print(
-  `[seed] Inserted users: ${users.length}, menu_items: ${menuItems.length}, orders: 1`
+  `[seed] Inserted users: ${users.length}, menuitems: ${menuItems.length}, orders: 1`
 );

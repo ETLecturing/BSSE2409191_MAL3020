@@ -3,18 +3,19 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
 /**
- * @desc Register new user (Customer/Admin/Worker)
+ * @desc Register a new user (customer, admin, worker)
  * @route POST /api/auth/register
  */
 export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
+    // Validate required fields
     if (!name || !email || !password) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // Check if email exists
+    // Check if email already exists
     const exists = await User.findOne({ email });
     if (exists) {
       return res.status(409).json({ error: "Email already exists" });
@@ -23,53 +24,72 @@ export const register = async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Default role = customer if not provided
+    // Create user
     const newUser = await User.create({
       name,
       email,
       passwordHash,
-      role: role || "customer",
+      role: role || "customer", // default role = customer
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "User registered successfully",
-      user: { name: newUser.name, email: newUser.email, role: newUser.role },
+      user: {
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+      },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("❌ Register error:", err);
+    return res.status(500).json({ error: "Server error while registering" });
   }
 };
 
 /**
- * @desc Login user
+ * @desc Login user & return JWT token
  * @route POST /api/auth/login
  */
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user by email
+    // Validate fields
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email & password required" });
+    }
+
+    // Find user
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user)
+      return res.status(404).json({ error: "Invalid email or password" });
 
     // Compare password
     const match = await bcrypt.compare(password, user.passwordHash);
-    if (!match) return res.status(401).json({ error: "Invalid credentials" });
+    if (!match)
+      return res.status(401).json({ error: "Invalid email or password" });
 
-    // Generate JWT
+    // Create JWT
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET || "devsecret",
       { expiresIn: "2h" }
     );
 
-    res.json({
+    return res.json({
       message: "Login successful",
       token,
-      user: { name: user.name, email: user.email, role: user.role },
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("❌ Login error:", err);
+    return res.status(500).json({ error: "Server error while logging in" });
   }
 };
 
@@ -80,16 +100,19 @@ export const login = async (req, res) => {
  */
 export const getProfile = async (req, res) => {
   try {
+    // Fetch user from DB using ID from JWT
     const user = await User.findById(req.user.id).select("name email role");
+
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    res.json({
+    return res.json({
       id: user._id,
       name: user.name,
       email: user.email,
       role: user.role,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("❌ Profile fetch error:", err);
+    return res.status(500).json({ error: "Failed to fetch profile" });
   }
 };

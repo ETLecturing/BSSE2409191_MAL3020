@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { io } from "socket.io-client";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const socket = io("http://localhost:5000");
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
@@ -14,11 +16,24 @@ export default function AdminDashboard() {
     })
       .then((res) => res.json())
       .then(setOrders)
-      .catch((err) => console.error(err));
+      .catch(console.error);
   };
 
+  // Initial fetch + WebSocket live updates
   useEffect(() => {
     fetchAllOrders();
+
+    socket.on("new-order", fetchAllOrders);
+    socket.on("order-canceled", fetchAllOrders);
+    socket.on("order-updated", fetchAllOrders);
+    socket.on("order-status-updated", fetchAllOrders);
+
+    return () => {
+      socket.off("new-order");
+      socket.off("order-canceled");
+      socket.off("order-updated");
+      socket.off("order-status-updated");
+    };
   }, []);
 
   // Update order status
@@ -43,6 +58,7 @@ export default function AdminDashboard() {
     }
   };
 
+  // Status color helper
   const statusColors = {
     Received: "orange",
     Preparing: "blue",
@@ -75,6 +91,7 @@ export default function AdminDashboard() {
           <tbody>
             {orders.map((order) => {
               const total = (order.subtotal + order.serviceCharge).toFixed(2);
+
               const shortOrderId = order._id.slice(-6).toUpperCase();
               const shortUserId = order.userId
                 ? order.userId.toString().slice(-6).toUpperCase()
@@ -82,15 +99,12 @@ export default function AdminDashboard() {
 
               return (
                 <tr key={order._id}>
-                  {/* Order ID */}
                   <td>
                     <b>#{shortOrderId}</b>
                   </td>
 
-                  {/* User ID */}
                   <td>{shortUserId}</td>
 
-                  {/* Items */}
                   <td>
                     {order.items.map((i) => (
                       <div key={i.menuItemId}>
@@ -99,20 +113,16 @@ export default function AdminDashboard() {
                     ))}
                   </td>
 
-                  {/* Total */}
                   <td>{total}</td>
 
-                  {/* Payment Method */}
                   <td>{order.paymentMethod}</td>
 
-                  {/* Status */}
                   <td>
                     <b style={{ color: statusColors[order.status] }}>
                       {order.status}
                     </b>
                   </td>
 
-                  {/* Status Control */}
                   <td>
                     <select
                       value={order.status}

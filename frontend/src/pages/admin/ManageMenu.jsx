@@ -9,6 +9,9 @@ const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 export default function ManageMenu() {
   const [menu, setMenu] = useState([]);
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [search, setSearch] = useState("");
+
   const [form, setForm] = useState({
     name: "",
     category: "",
@@ -18,10 +21,9 @@ export default function ManageMenu() {
 
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState("");
-
   const token = localStorage.getItem("token");
 
-  // Fetch all menu items
+  // Fetch menu items
   const fetchMenu = () => {
     fetch(`${API}/menu`)
       .then((res) => res.json())
@@ -29,17 +31,31 @@ export default function ManageMenu() {
       .catch(console.error);
   };
 
-  // Initial load + real-time updates
+  // Initialize + WebSocket real-time sync
   useEffect(() => {
     fetchMenu();
 
-    // 🔥 Real-time updates when any admin modifies menu
     socket.on("menu:update", fetchMenu);
-
     return () => socket.off("menu:update");
   }, []);
 
-  // Add or Update Menu Item
+  // Auto-generate unique category list
+  const categories = ["All", ...new Set(menu.map((i) => i.category))];
+
+  // Filter by category
+  let filtered =
+    activeCategory === "All"
+      ? menu
+      : menu.filter((i) => i.category === activeCategory);
+
+  // Search filter
+  filtered = filtered.filter((i) =>
+    i.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  /** ------------------------
+   *  Add / Update Menu Item
+   * ------------------------ */
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -52,28 +68,26 @@ export default function ManageMenu() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...form,
-          price: Number(form.price),
-        }),
+        body: JSON.stringify({ ...form, price: Number(form.price) }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save item");
 
       setMsg(editingId ? "✅ Item updated!" : "✅ Item added!");
-      setForm({ name: "", category: "", price: "", isAvailable: true });
       setEditingId(null);
-
+      setForm({ name: "", category: "", price: "", isAvailable: true });
       fetchMenu();
     } catch (err) {
       setMsg("❌ " + err.message);
     }
   };
 
-  // Delete Menu Item
+  /** ------------------------
+   *  Delete item
+   * ------------------------ */
   const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this item?")) return;
+    if (!confirm("Delete this item?")) return;
 
     try {
       const res = await fetch(`${API}/menu/${id}`, {
@@ -82,7 +96,7 @@ export default function ManageMenu() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to delete item");
+      if (!res.ok) throw new Error(data.error);
 
       setMsg("🗑️ Item deleted!");
       fetchMenu();
@@ -91,7 +105,9 @@ export default function ManageMenu() {
     }
   };
 
-  // Start Editing
+  /** ------------------------
+   *  Edit item
+   * ------------------------ */
   const handleEdit = (item) => {
     setEditingId(item._id);
     setForm({
@@ -104,92 +120,203 @@ export default function ManageMenu() {
 
   return (
     <section>
-      <h2>📦 Manage Menu</h2>
+      <h2>Manage Menu</h2>
 
       {msg && <p style={{ color: "green" }}>{msg}</p>}
 
-      {/* FORM */}
-      <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
+      {/* Search + Add form */}
+      <div style={filterBar}>
+        <input
+          placeholder="Search menu..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={searchBox}
+        />
+      </div>
+
+      {/* Category Tabs */}
+      <div style={tabsStyle}>
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            style={{
+              ...tabButton,
+              background: activeCategory === cat ? "#0d6efd" : "#e0e0e0",
+              color: activeCategory === cat ? "white" : "black",
+            }}
+            onClick={() => setActiveCategory(cat)}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Add / Edit Form */}
+      <form onSubmit={handleSubmit} style={formStyle}>
         <input
           placeholder="Name"
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           required
-        />{" "}
+          style={input}
+        />
+
         <input
           placeholder="Category"
           value={form.category}
           onChange={(e) => setForm({ ...form, category: e.target.value })}
           required
-        />{" "}
+          style={input}
+        />
+
         <input
           type="number"
-          step="0.01"
           placeholder="Price (RM)"
           value={form.price}
           onChange={(e) => setForm({ ...form, price: e.target.value })}
           required
-        />{" "}
-        <label>
+          style={input}
+        />
+
+        <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <input
             type="checkbox"
             checked={form.isAvailable}
             onChange={(e) =>
               setForm({ ...form, isAvailable: e.target.checked })
             }
-          />{" "}
+          />
           Available
-        </label>{" "}
-        <button type="submit">{editingId ? "Update Item" : "Add Item"}</button>
+        </label>
+
+        <button style={saveBtn}>{editingId ? "Update" : "Add Item"}</button>
+
         {editingId && (
           <button
             type="button"
             onClick={() => {
               setEditingId(null);
-              setForm({
-                name: "",
-                category: "",
-                price: "",
-                isAvailable: true,
-              });
+              setForm({ name: "", category: "", price: "", isAvailable: true });
             }}
-            style={{ marginLeft: "10px" }}
+            style={cancelBtn}
           >
             Cancel Edit
           </button>
         )}
       </form>
 
-      {/* MENU TABLE */}
-      <table border="1" cellPadding="6" width="100%">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Price (RM)</th>
-            <th>Available</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+      {/* Menu Items (Card Layout) */}
+      <div style={gridContainer}>
+        {filtered.map((item) => (
+          <div key={item._id} style={itemCard}>
+            <h4>{item.name}</h4>
+            <p style={{ color: "#666" }}>{item.category}</p>
+            <p style={{ fontWeight: "bold", color: "#2e7d32" }}>
+              RM {item.price.toFixed(2)}
+            </p>
+            <p>{item.isAvailable ? "🟢 Available" : "🔴 Not Available"}</p>
 
-        <tbody>
-          {menu.map((item) => (
-            <tr key={item._id}>
-              <td>{item.name}</td>
-              <td>{item.category}</td>
-              <td>{item.price.toFixed(2)}</td>
-              <td>{item.isAvailable ? "✅" : "❌"}</td>
-
-              <td>
-                <button onClick={() => handleEdit(item)}>✏️ Edit</button>{" "}
-                <button onClick={() => handleDelete(item._id)}>
-                  🗑️ Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+            <div style={{ marginTop: "10px" }}>
+              <button style={editBtn} onClick={() => handleEdit(item)}>
+                ✏️ Edit
+              </button>
+              <button style={deleteBtn} onClick={() => handleDelete(item._id)}>
+                🗑️ Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
+
+/* ---------- STYLES ---------- */
+
+const tabsStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+  marginBottom: "15px",
+};
+
+const tabButton = {
+  padding: "8px 12px",
+  borderRadius: "6px",
+  border: "none",
+  cursor: "pointer",
+};
+
+const filterBar = { marginBottom: "10px" };
+
+const searchBox = {
+  width: "100%",
+  padding: "8px",
+  borderRadius: "6px",
+  border: "1px solid #ccc",
+};
+
+const formStyle = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "10px",
+  marginBottom: "20px",
+};
+
+const input = {
+  padding: "8px",
+  borderRadius: "6px",
+  border: "1px solid #ccc",
+  flex: "1 1 200px",
+};
+
+const saveBtn = {
+  background: "#0d6efd",
+  padding: "8px 12px",
+  borderRadius: "6px",
+  color: "white",
+  border: "none",
+  cursor: "pointer",
+};
+
+const cancelBtn = {
+  background: "#b71c1c",
+  padding: "8px 12px",
+  borderRadius: "6px",
+  color: "white",
+  border: "none",
+  cursor: "pointer",
+};
+
+const gridContainer = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "15px",
+};
+
+const itemCard = {
+  padding: "15px",
+  border: "1px solid #ddd",
+  borderRadius: "10px",
+  background: "white",
+  textAlign: "center",
+  boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+};
+
+const editBtn = {
+  background: "#ffc107",
+  padding: "6px 10px",
+  borderRadius: "6px",
+  border: "none",
+  cursor: "pointer",
+  marginRight: "8px",
+};
+
+const deleteBtn = {
+  background: "#d32f2f",
+  padding: "6px 10px",
+  borderRadius: "6px",
+  border: "none",
+  cursor: "pointer",
+  color: "white",
+};

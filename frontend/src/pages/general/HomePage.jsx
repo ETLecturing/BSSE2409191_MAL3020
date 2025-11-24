@@ -50,7 +50,9 @@ export default function HomePage({ user }) {
           <div style={cardContainer}>
             <div style={card}>
               <h3>🍔 Browse Menu</h3>
-              <p>View available food & drinks, check prices and availability.</p>
+              <p>
+                View available food & drinks, check prices and availability.
+              </p>
             </div>
             <div style={card}>
               <h3>🧾 Place Orders</h3>
@@ -64,18 +66,22 @@ export default function HomePage({ user }) {
         </>
       ) : (
         <>
-          <p>Use the navigation above to access your dashboard or manage menu.</p>
+          <p>
+            Use the navigation above to access your dashboard or manage menu.
+          </p>
           <div style={cardContainer}>
             {user.role === "customer" && (
               <div style={card}>
-                <h3>🧾 My Orders</h3>
+                <h3>🧾 Dashbaord</h3>
                 <p>View your ongoing, completed, or canceled orders easily.</p>
               </div>
             )}
             {(user.role === "admin" || user.role === "worker") && (
               <div style={card}>
-                <h3>📋 Manage Orders</h3>
-                <p>Process customer orders, update status, and manage menu items.</p>
+                <h3>📋 Admin Dasboard</h3>
+                <p>
+                  Process customer orders, update status, and manage menu items.
+                </p>
               </div>
             )}
           </div>

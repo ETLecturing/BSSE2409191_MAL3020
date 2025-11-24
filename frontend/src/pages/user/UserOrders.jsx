@@ -13,6 +13,8 @@ export default function UserOrders() {
   const [msg, setMsg] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("All");
 
   const token = localStorage.getItem("token");
 
@@ -28,15 +30,23 @@ export default function UserOrders() {
   useEffect(() => {
     fetchMenu();
 
-    // 🔥 When admin adds/updates/deletes menu items
-    socket.on("menu:update", () => {
-      fetchMenu();
-    });
-
-    return () => {
-      socket.off("menu:update");
-    };
+    socket.on("menu:update", fetchMenu);
+    return () => socket.off("menu:update");
   }, []);
+
+  // Auto-generate categories
+  const categories = ["All", ...new Set(menu.map((i) => i.category))];
+
+  // Filter by category
+  let filteredMenu =
+    activeCategory === "All"
+      ? menu
+      : menu.filter((i) => i.category === activeCategory);
+
+  // Apply search filter
+  filteredMenu = filteredMenu.filter((i) =>
+    i.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   // Add item to cart
   const addToCart = (item) => {
@@ -110,7 +120,48 @@ export default function UserOrders() {
       <h2>🍽️ Order Your Meal</h2>
       {msg && <p style={{ color: "red" }}>{msg}</p>}
 
-      {/* Menu */}
+      {/*  Search bar */}
+      <input
+        placeholder="Search menu..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{
+          padding: "10px",
+          width: "100%",
+          borderRadius: "8px",
+          border: "1px solid #ccc",
+          marginBottom: "15px",
+        }}
+      />
+
+      {/* Category tabs */}
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "15px",
+          flexWrap: "wrap",
+        }}
+      >
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            style={{
+              padding: "8px 14px",
+              borderRadius: "8px",
+              border: "none",
+              cursor: "pointer",
+              background: activeCategory === cat ? "#0d6efd" : "#e4e4e4",
+              color: activeCategory === cat ? "white" : "black",
+            }}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Menu Grid */}
       <div
         style={{
           display: "grid",
@@ -119,23 +170,21 @@ export default function UserOrders() {
           marginTop: "20px",
         }}
       >
-        {menu.map((item) => (
+        {filteredMenu.map((item) => (
           <div
             key={item._id}
             style={{
               border: "1px solid #ddd",
               borderRadius: "10px",
               padding: "12px",
-              background: "#fafafa",
+              background: "white",
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
               textAlign: "center",
             }}
           >
-            <h4 style={{ marginBottom: "6px" }}>{item.name}</h4>
-            <p style={{ color: "#555", marginBottom: "6px" }}>
-              {item.category}
-            </p>
-            <p style={{ fontWeight: "bold", color: "#007b00" }}>
+            <h4>{item.name}</h4>
+            <p style={{ color: "#777" }}>{item.category}</p>
+            <p style={{ fontWeight: "bold", color: "#2e7d32" }}>
               RM {item.price.toFixed(2)}
             </p>
             <button
@@ -144,9 +193,10 @@ export default function UserOrders() {
                 background: "#007bff",
                 color: "white",
                 border: "none",
-                borderRadius: "5px",
-                padding: "6px 10px",
+                borderRadius: "6px",
+                padding: "7px 12px",
                 cursor: "pointer",
+                marginTop: "6px",
               }}
             >
               Add to Cart
@@ -155,7 +205,7 @@ export default function UserOrders() {
         ))}
       </div>
 
-      {/* Cart */}
+      {/* 🛒 Fixed Cart */}
       <div
         style={{
           position: "fixed",
@@ -188,10 +238,7 @@ export default function UserOrders() {
               >
                 <div style={{ fontWeight: "bold" }}>{item.name}</div>
                 <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                  }}
+                  style={{ display: "flex", justifyContent: "space-between" }}
                 >
                   <input
                     type="number"
@@ -255,7 +302,7 @@ export default function UserOrders() {
         )}
       </div>
 
-      {/* Success popup */}
+      {/* Success Popup */}
       {showSuccess && (
         <div
           style={{

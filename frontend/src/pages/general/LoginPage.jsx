@@ -27,16 +27,16 @@ export default function LoginPage({ setUser, navigate }) {
       // 2. Store token
       localStorage.setItem("token", data.token);
 
-      // 3. Fetch profile
+      // 3. Fetch logged-in user
       const profileRes = await fetch(`${API}/auth/me`, {
         headers: { Authorization: `Bearer ${data.token}` },
       });
+
       const me = await profileRes.json();
 
-      if (!profileRes.ok)
-        throw new Error(me.error || "Failed to fetch profile");
+      if (!profileRes.ok) throw new Error(me.error);
 
-      // 4. Save user in global state
+      // 4. Save user globally
       setUser({
         id: me.id,
         name: me.name,
@@ -44,8 +44,12 @@ export default function LoginPage({ setUser, navigate }) {
         role: me.role,
       });
 
-      // 5. Redirect based on role
-      navigate(me.role === "admin" ? "/admin" : "/user");
+      // 5. Navigate correctly (NO "/user" or "/admin")
+      if (me.role === "admin" || me.role === "worker") {
+        navigate("adminDashboard");
+      } else {
+        navigate("userDashboard");
+      }
     } catch (err) {
       setMsg("❌ " + err.message);
     } finally {
@@ -86,7 +90,6 @@ export default function LoginPage({ setUser, navigate }) {
   );
 }
 
-// 🔹 Styles
 const inputBox = {
   width: "100%",
   padding: "10px",

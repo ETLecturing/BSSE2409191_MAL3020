@@ -1,11 +1,14 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
-import { io } from "../index.js";
+import { io } from "../index.js"; // WebSocket instance
 
-// 🟢 Create a new order
+// -------------------------------------------------------
+// CREATE NEW ORDER (User)
+// -------------------------------------------------------
 export const createOrder = async (req, res) => {
   try {
-    const { items, subtotal, serviceCharge, paymentMethod, pickupTime } = req.body;
+    const { items, subtotal, serviceCharge, paymentMethod, pickupTime } =
+      req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ error: "Order must have at least one item" });
@@ -21,8 +24,8 @@ export const createOrder = async (req, res) => {
       status: "Received",
     });
 
-    // 🔥 Notify admin dashboard (new order)
-    io.emit("new-order", newOrder);
+    // 🔥 Notify admin dashboard (new order arrived)
+    io.emit("order:new", newOrder);
 
     res.status(201).json(newOrder);
   } catch (err) {
@@ -31,18 +34,24 @@ export const createOrder = async (req, res) => {
   }
 };
 
-// 🟢 Get all orders for the logged-in user
+// -------------------------------------------------------
+// GET USER ORDERS
+// -------------------------------------------------------
 export const getUserOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const orders = await Order.find({ userId: req.user.id }).sort({
+      createdAt: -1,
+    });
     res.json(orders);
   } catch (err) {
-    console.error("❌ Get orders error:", err);
+    console.error("❌ Get user orders error:", err);
     res.status(500).json({ error: "Failed to fetch orders" });
   }
 };
 
-// 🟡 Cancel an order
+// -------------------------------------------------------
+// CANCEL ORDER (User)
+// -------------------------------------------------------
 export const cancelOrder = async (req, res) => {
   try {
     const { id } = req.params;
@@ -53,9 +62,9 @@ export const cancelOrder = async (req, res) => {
 
     const order = await Order.findOne({ _id: id, userId: req.user.id });
     if (!order) {
-      return res
-        .status(404)
-        .json({ error: "Order not found or not owned by this user" });
+      return res.status(404).json({
+        error: "Order not found or not owned by this user",
+      });
     }
 
     if (["Preparing", "Ready", "Picked up", "Canceled"].includes(order.status)) {
@@ -67,8 +76,8 @@ export const cancelOrder = async (req, res) => {
     order.status = "Canceled";
     await order.save();
 
-    // 🔥 Notify both admin & user dashboards
-    io.emit("order-canceled", order);
+    // 🔥 Realtime: notify both user and admin dashboards
+    io.emit("order:canceled", order);
 
     res.json({ message: "Order canceled successfully", order });
   } catch (err) {
@@ -77,7 +86,9 @@ export const cancelOrder = async (req, res) => {
   }
 };
 
-// 🟡 Edit an order before preparation
+// -------------------------------------------------------
+// UPDATE ORDER (User) - before preparation starts
+// -------------------------------------------------------
 export const updateUserOrder = async (req, res) => {
   try {
     const { id } = req.params;
@@ -89,22 +100,22 @@ export const updateUserOrder = async (req, res) => {
 
     const order = await Order.findOne({ _id: id, userId: req.user.id });
     if (!order) {
-      return res
-        .status(404)
-        .json({ error: "Order not found or not owned by this user" });
+      return res.status(404).json({
+        error: "Order not found or not owned by this user",
+      });
     }
 
     if (["Preparing", "Ready", "Picked up", "Canceled"].includes(order.status)) {
-      return res
-        .status(400)
-        .json({ error: "Cannot edit order once preparation has started." });
+      return res.status(400).json({
+        error: "Cannot edit order once preparation has started.",
+      });
     }
 
     if (paymentMethod) order.paymentMethod = paymentMethod;
     await order.save();
 
-    // 🔥 Real-time update for admin + user
-    io.emit("order-updated", order);
+    // 🔥 Realtime: notify admin AND user dashboards
+    io.emit("order:updated", order);
 
     res.json({ message: "Order updated successfully", order });
   } catch (err) {
@@ -113,7 +124,9 @@ export const updateUserOrder = async (req, res) => {
   }
 };
 
-// 🟣 Admin: Get all orders
+// -------------------------------------------------------
+// ADMIN: GET ALL ORDERS
+// -------------------------------------------------------
 export const adminGetAllOrders = async (req, res) => {
   try {
     const orders = await Order.find().sort({ createdAt: -1 });
@@ -124,7 +137,9 @@ export const adminGetAllOrders = async (req, res) => {
   }
 };
 
-// 🟣 Admin: Update order status
+// -------------------------------------------------------
+// ADMIN: UPDATE ORDER STATUS
+// -------------------------------------------------------
 export const adminUpdateStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -141,8 +156,8 @@ export const adminUpdateStatus = async (req, res) => {
     order.status = status;
     await order.save();
 
-    // 🔥 Real-time update for user + admin dashboards
-    io.emit("order-status-updated", order);
+    // 🔥 Realtime: notify user AND admin side
+    io.emit("order:status", order);
 
     res.json({ message: "Status updated successfully", order });
   } catch (err) {

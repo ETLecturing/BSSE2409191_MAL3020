@@ -1,4 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { io } from "socket.io-client";
+
+// Auto-detect LAN IP for WebSocket
+const SOCKET_URL = `http://${window.location.hostname}:5000`;
+const socket = io(SOCKET_URL);
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
@@ -11,15 +16,29 @@ export default function UserOrders() {
 
   const token = localStorage.getItem("token");
 
-  // 🔹 Fetch menu
-  useEffect(() => {
+  // Fetch menu
+  const fetchMenu = () => {
     fetch(`${API}/menu`)
       .then((res) => res.json())
       .then((data) => setMenu(data.filter((item) => item.isAvailable)))
       .catch((err) => console.error("Failed to fetch menu:", err));
+  };
+
+  // Initial load + WebSocket listeners
+  useEffect(() => {
+    fetchMenu();
+
+    // 🔥 When admin adds/updates/deletes menu items
+    socket.on("menu:update", () => {
+      fetchMenu();
+    });
+
+    return () => {
+      socket.off("menu:update");
+    };
   }, []);
 
-  // 🔹 Add item to cart
+  // Add item to cart
   const addToCart = (item) => {
     const exists = cart.find((x) => x._id === item._id);
     if (exists) {
@@ -31,7 +50,7 @@ export default function UserOrders() {
     }
   };
 
-  // 🔹 Update quantity
+  // Update quantity
   const updateQty = (id, qty) => {
     if (qty <= 0) {
       setCart(cart.filter((x) => x._id !== id));
@@ -40,12 +59,12 @@ export default function UserOrders() {
     }
   };
 
-  // 🔹 Totals
+  // Totals
   const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
   const serviceCharge = subtotal * 0.1;
   const total = subtotal + serviceCharge;
 
-  // 🔹 Place order
+  // Place order
   const handleSubmit = async () => {
     if (cart.length === 0) {
       setMsg("❌ Please add items to your cart first.");
@@ -91,7 +110,7 @@ export default function UserOrders() {
       <h2>🍽️ Order Your Meal</h2>
       {msg && <p style={{ color: "red" }}>{msg}</p>}
 
-      {/* ✅ Menu Display */}
+      {/* Menu */}
       <div
         style={{
           display: "grid",
@@ -110,7 +129,6 @@ export default function UserOrders() {
               background: "#fafafa",
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
               textAlign: "center",
-              transition: "transform 0.2s ease",
             }}
           >
             <h4 style={{ marginBottom: "6px" }}>{item.name}</h4>
@@ -137,7 +155,7 @@ export default function UserOrders() {
         ))}
       </div>
 
-      {/* ✅ Cart Section */}
+      {/* Cart */}
       <div
         style={{
           position: "fixed",
@@ -147,7 +165,6 @@ export default function UserOrders() {
           background: "white",
           border: "1px solid #ccc",
           borderRadius: "10px",
-          boxShadow: "0 3px 10px rgba(0,0,0,0.2)",
           padding: "15px",
           zIndex: 999,
           maxHeight: "80vh",
@@ -155,6 +172,7 @@ export default function UserOrders() {
         }}
       >
         <h3 style={{ textAlign: "center" }}>🧾 Your Cart</h3>
+
         {cart.length === 0 ? (
           <p style={{ textAlign: "center" }}>No items added.</p>
         ) : (
@@ -170,7 +188,10 @@ export default function UserOrders() {
               >
                 <div style={{ fontWeight: "bold" }}>{item.name}</div>
                 <div
-                  style={{ display: "flex", justifyContent: "space-between" }}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
                 >
                   <input
                     type="number"
@@ -196,7 +217,7 @@ export default function UserOrders() {
             <p>Service Charge (10%): RM {serviceCharge.toFixed(2)}</p>
             <p style={{ fontWeight: "bold" }}>Total: RM {total.toFixed(2)}</p>
 
-            {/* Payment method selection */}
+            {/* Payment */}
             <label style={{ display: "block", marginTop: "10px" }}>
               Payment Method:
             </label>
@@ -234,15 +255,12 @@ export default function UserOrders() {
         )}
       </div>
 
-      {/* ✅ Success Popup */}
+      {/* Success popup */}
       {showSuccess && (
         <div
           style={{
             position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+            inset: 0,
             background: "rgba(0,0,0,0.5)",
             display: "flex",
             justifyContent: "center",
@@ -258,7 +276,6 @@ export default function UserOrders() {
               padding: "30px",
               textAlign: "center",
               width: "300px",
-              boxShadow: "0 3px 10px rgba(0,0,0,0.3)",
             }}
           >
             <h3>✅ Order Successful!</h3>

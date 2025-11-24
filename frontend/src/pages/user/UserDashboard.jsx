@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
+// Auto-detect LAN IP for WebSocket
+const SOCKET_URL = `http://${window.location.hostname}:5000`;
+const socket = io(SOCKET_URL);
+
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-const socket = io("http://localhost:5000");
 
 export default function UserDashboard() {
   const [orders, setOrders] = useState([]);
@@ -10,7 +13,7 @@ export default function UserDashboard() {
   const [msg, setMsg] = useState("");
   const token = localStorage.getItem("token");
 
-  // 🔹 Fetch all orders
+  // Fetch all orders
   const fetchOrders = () => {
     fetch(`${API}/orders/my`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -20,22 +23,25 @@ export default function UserDashboard() {
       .catch(console.error);
   };
 
-  // 🔹 Initial fetch + WebSocket events
+  // WebSocket events
   useEffect(() => {
     fetchOrders();
 
-    socket.on("order-status-updated", fetchOrders);
-    socket.on("order-canceled", fetchOrders);
-    socket.on("order-updated", fetchOrders);
+    // 🔥 User gets real-time updates from admin
+    socket.on("order:status", fetchOrders); // admin changed order status
+    socket.on("order:updated", fetchOrders); // admin or user updated order
+    socket.on("order:new", fetchOrders); // user placed an order (optional for user)
+    socket.on("order:canceled", fetchOrders); // user/admin canceled
 
     return () => {
-      socket.off("order-status-updated");
-      socket.off("order-canceled");
-      socket.off("order-updated");
+      socket.off("order:status");
+      socket.off("order:updated");
+      socket.off("order:new");
+      socket.off("order:canceled");
     };
   }, []);
 
-  // 🔹 Status colors
+  // Status colors
   const getStatusColor = (status) =>
     ({
       Received: "orange",
@@ -45,7 +51,7 @@ export default function UserDashboard() {
       Canceled: "red",
     }[status] || "gray");
 
-  // 🔹 Cancel order
+  // Cancel
   const handleCancel = async (id) => {
     if (!confirm("Cancel this order?")) return;
 
@@ -54,8 +60,10 @@ export default function UserDashboard() {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+
       setMsg("❌ Order canceled successfully");
       fetchOrders();
     } catch (err) {
@@ -63,14 +71,14 @@ export default function UserDashboard() {
     }
   };
 
-  // 🔹 Edit order
+  // Edit
   const handleEdit = (order) =>
     setEditingOrder({
       ...order,
       paymentMethod: order.paymentMethod || "cash",
     });
 
-  // 🔹 Save edited order
+  // Save edit
   const handleSaveEdit = async () => {
     try {
       const res = await fetch(`${API}/orders/${editingOrder._id}`, {
@@ -95,7 +103,7 @@ export default function UserDashboard() {
     }
   };
 
-  // 🔹 UI helper: Button style
+  // Button style
   const btn = (type) => ({
     background:
       type === "warning"
@@ -111,7 +119,7 @@ export default function UserDashboard() {
     cursor: "pointer",
   });
 
-  // 🔹 Render actions column
+  // Action column
   const renderActions = (order) =>
     order.status === "Received" ? (
       <>
@@ -126,7 +134,7 @@ export default function UserDashboard() {
       <span style={{ color: "gray" }}>No action</span>
     );
 
-  // 🔹 Render table
+  // Orders table
   const renderOrders = () =>
     orders.length === 0 ? (
       <p>No orders found.</p>
@@ -166,7 +174,33 @@ export default function UserDashboard() {
       </table>
     );
 
-  // 🔹 Render edit modal
+  // Modal styles
+  const modalOverlay = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 999,
+  };
+
+  const modalBox = {
+    background: "white",
+    padding: "20px",
+    borderRadius: "10px",
+    width: "300px",
+    textAlign: "center",
+  };
+
+  const selectBox = {
+    padding: "5px",
+    borderRadius: "5px",
+    border: "1px solid #ccc",
+    marginBottom: "10px",
+  };
+
+  // Edit modal
   const renderEditModal = () =>
     editingOrder && (
       <div style={modalOverlay}>
@@ -200,35 +234,6 @@ export default function UserDashboard() {
         </div>
       </div>
     );
-
-  // 🔹 Modal styles
-  const modalOverlay = {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.4)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 999,
-  };
-
-  const modalBox = {
-    background: "white",
-    padding: "20px",
-    borderRadius: "10px",
-    width: "300px",
-    textAlign: "center",
-  };
-
-  const selectBox = {
-    padding: "5px",
-    borderRadius: "5px",
-    border: "1px solid #ccc",
-    marginBottom: "10px",
-  };
 
   return (
     <section>

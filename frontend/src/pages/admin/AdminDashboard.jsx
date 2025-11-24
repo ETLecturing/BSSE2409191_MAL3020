@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 
+// Auto-detect LAN IP
+const SOCKET_URL = `http://${window.location.hostname}:5000`;
+const socket = io(SOCKET_URL);
+
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-const socket = io("http://localhost:5000");
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
@@ -19,20 +22,21 @@ export default function AdminDashboard() {
       .catch(console.error);
   };
 
-  // Initial fetch + WebSocket live updates
+  // Initial fetch + WebSocket listeners
   useEffect(() => {
     fetchAllOrders();
 
-    socket.on("new-order", fetchAllOrders);
-    socket.on("order-canceled", fetchAllOrders);
-    socket.on("order-updated", fetchAllOrders);
-    socket.on("order-status-updated", fetchAllOrders);
+    // 🔥 Real-time events from backend
+    socket.on("order:new", fetchAllOrders); // user placed order
+    socket.on("order:canceled", fetchAllOrders); // user/admin canceled
+    socket.on("order:updated", fetchAllOrders); // user edited
+    socket.on("order:status", fetchAllOrders); // admin changed status
 
     return () => {
-      socket.off("new-order");
-      socket.off("order-canceled");
-      socket.off("order-updated");
-      socket.off("order-status-updated");
+      socket.off("order:new");
+      socket.off("order:canceled");
+      socket.off("order:updated");
+      socket.off("order:status");
     };
   }, []);
 
@@ -52,13 +56,12 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error(data.error || "Failed to update status");
 
       setMsg("✅ Status updated successfully");
-      fetchAllOrders();
     } catch (err) {
       setMsg("❌ " + err.message);
     }
   };
 
-  // Status color helper
+  // Colors
   const statusColors = {
     Received: "orange",
     Preparing: "blue",
@@ -91,7 +94,6 @@ export default function AdminDashboard() {
           <tbody>
             {orders.map((order) => {
               const total = (order.subtotal + order.serviceCharge).toFixed(2);
-
               const shortOrderId = order._id.slice(-6).toUpperCase();
               const shortUserId = order.userId
                 ? order.userId.toString().slice(-6).toUpperCase()
@@ -102,7 +104,6 @@ export default function AdminDashboard() {
                   <td>
                     <b>#{shortOrderId}</b>
                   </td>
-
                   <td>{shortUserId}</td>
 
                   <td>
@@ -114,7 +115,6 @@ export default function AdminDashboard() {
                   </td>
 
                   <td>{total}</td>
-
                   <td>{order.paymentMethod}</td>
 
                   <td>

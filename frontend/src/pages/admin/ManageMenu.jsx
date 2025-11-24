@@ -1,4 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { io } from "socket.io-client";
+
+// Auto-detect LAN IP
+const SOCKET_URL = `http://${window.location.hostname}:5000`;
+const socket = io(SOCKET_URL);
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
@@ -10,24 +15,31 @@ export default function ManageMenu() {
     price: "",
     isAvailable: true,
   });
+
   const [editingId, setEditingId] = useState(null);
   const [msg, setMsg] = useState("");
 
   const token = localStorage.getItem("token");
 
-  // 🔹 Fetch all menu items
+  // Fetch all menu items
   const fetchMenu = () => {
     fetch(`${API}/menu`)
       .then((res) => res.json())
       .then(setMenu)
-      .catch((err) => console.error(err));
+      .catch(console.error);
   };
 
+  // Initial load + real-time updates
   useEffect(() => {
     fetchMenu();
+
+    // 🔥 Real-time updates when any admin modifies menu
+    socket.on("menu:update", fetchMenu);
+
+    return () => socket.off("menu:update");
   }, []);
 
-  // 🔹 Add or Update Menu Item
+  // Add or Update Menu Item
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -49,22 +61,20 @@ export default function ManageMenu() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save item");
 
-      setMsg(
-        editingId
-          ? "✅ Item updated successfully!"
-          : "✅ Item added successfully!"
-      );
+      setMsg(editingId ? "✅ Item updated!" : "✅ Item added!");
       setForm({ name: "", category: "", price: "", isAvailable: true });
       setEditingId(null);
+
       fetchMenu();
     } catch (err) {
       setMsg("❌ " + err.message);
     }
   };
 
-  // 🔹 Delete Item
+  // Delete Menu Item
   const handleDelete = async (id) => {
     if (!confirm("Are you sure you want to delete this item?")) return;
+
     try {
       const res = await fetch(`${API}/menu/${id}`, {
         method: "DELETE",
@@ -74,14 +84,14 @@ export default function ManageMenu() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to delete item");
 
-      setMsg("🗑️ Item deleted successfully!");
+      setMsg("🗑️ Item deleted!");
       fetchMenu();
     } catch (err) {
       setMsg("❌ " + err.message);
     }
   };
 
-  // 🔹 Start Editing
+  // Start Editing
   const handleEdit = (item) => {
     setEditingId(item._id);
     setForm({
@@ -94,7 +104,9 @@ export default function ManageMenu() {
 
   return (
     <section>
-      <h2>Manage Menu</h2>
+      <h2>📦 Manage Menu</h2>
+
+      {msg && <p style={{ color: "green" }}>{msg}</p>}
 
       {/* FORM */}
       <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
@@ -134,7 +146,12 @@ export default function ManageMenu() {
             type="button"
             onClick={() => {
               setEditingId(null);
-              setForm({ name: "", category: "", price: "", isAvailable: true });
+              setForm({
+                name: "",
+                category: "",
+                price: "",
+                isAvailable: true,
+              });
             }}
             style={{ marginLeft: "10px" }}
           >
@@ -142,8 +159,6 @@ export default function ManageMenu() {
           </button>
         )}
       </form>
-
-      <p>{msg}</p>
 
       {/* MENU TABLE */}
       <table border="1" cellPadding="6" width="100%">
@@ -156,6 +171,7 @@ export default function ManageMenu() {
             <th>Actions</th>
           </tr>
         </thead>
+
         <tbody>
           {menu.map((item) => (
             <tr key={item._id}>
@@ -163,6 +179,7 @@ export default function ManageMenu() {
               <td>{item.category}</td>
               <td>{item.price.toFixed(2)}</td>
               <td>{item.isAvailable ? "✅" : "❌"}</td>
+
               <td>
                 <button onClick={() => handleEdit(item)}>✏️ Edit</button>{" "}
                 <button onClick={() => handleDelete(item._id)}>

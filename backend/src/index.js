@@ -14,15 +14,16 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-// Allow frontend + LAN access
+// Allow frontend & LAN devices
 app.use(
   cors({
-    origin: "*", // allow all for LAN testing
+    origin: "*", // allow all for LAN and mobile devices
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );
 
-// Only connect DB + start server if NOT running tests
+
+// Only start server + DB if NOT in testing mode
 
 let server = null;
 export let io = null;
@@ -30,37 +31,38 @@ export let io = null;
 if (process.env.NODE_ENV !== "test") {
   console.log("🌐 Normal mode detected — starting server & DB");
 
-  // Connect to real DB
+  // Connect to real MongoDB
   connectDB();
 
-  // Create server with WebSocket support
+  // Create HTTP server
   server = http.createServer(app);
 
-  // Create WebSocket instance
+  // WebSocket setup
   io = new Server(server, {
     cors: {
-      origin: "*", // allow any device on LAN
+      origin: "*", // allow all devices on same WiFi network
       methods: ["GET", "POST"],
     },
   });
 
-  // WebSocket events
   io.on("connection", (socket) => {
-    console.log("🟢 Client Connected:", socket.id);
+    console.log("🟢 WebSocket Client Connected:", socket.id);
 
     socket.on("disconnect", () => {
-      console.log("🔴 Client Disconnected:", socket.id);
+      console.log("🔴 WebSocket Client Disconnected:", socket.id);
     });
   });
 
   const PORT = process.env.PORT || 5000;
 
+  // Listen on ALL network interfaces for LAN support
   server.listen(PORT, "0.0.0.0", () => {
-    console.log(` Server with WebSocket running on port ${PORT}`);
+    console.log(`🚀 Server & WebSocket running on LAN port ${PORT}`);
   });
 } else {
-  console.log(" TEST MODE: Server & WebSockets disabled");
+  console.log("🧪 TEST MODE: Server & WebSockets Disabled");
 }
+
 
 // REST API ROUTES
 
@@ -69,10 +71,11 @@ app.use("/api/menu", menuRoutes);
 app.use("/api/orders", orderRoutes);
 
 app.get("/", (req, res) => {
-  res.send("API Running ✔ (Test-Safe, WebSocket-Ready)");
+  res.send("API Running ✔ (LAN Ready, Test Safe, WebSocket Enabled)");
 });
 
-// Export ONLY the app for unit/integration testing
+// Debugging only
 console.log("NODE_ENV:", process.env.NODE_ENV);
 
+// Export only the app for Supertest (no server)
 export default app;

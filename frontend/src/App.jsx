@@ -14,14 +14,15 @@ import UserOrders from "./pages/user/UserOrders.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import ManageMenu from "./pages/admin/ManageMenu.jsx";
 
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+// 🔥 Auto-detect LAN backend API
+const API_BASE = `http://${window.location.hostname}:5000/api`;
 
 export default function App() {
   const [page, setPage] = useState("home");
   const [user, setUser] = useState(null);
   const [checkedAuth, setCheckedAuth] = useState(false);
 
-  // Check token once on startup
+  // 🔥 Check token once & auto-login
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -29,7 +30,7 @@ export default function App() {
       return;
     }
 
-    fetch(`${API}/auth/me`, {
+    fetch(`${API_BASE}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -73,7 +74,7 @@ export default function App() {
       {page === "register" && <RegisterPage navigate={navigate} />}
 
       {/* ---------- CUSTOMER ROUTES ---------- */}
-      {user && user.role === "customer" && (
+      {user?.role === "customer" && (
         <>
           {page === "userDashboard" && <UserDashboard />}
           {page === "userOrders" && <UserOrders />}
@@ -89,12 +90,18 @@ export default function App() {
       )}
 
       {/* ---------- ACCESS CONTROL ---------- */}
-      {!user && ["userDashboard", "userOrders", "adminDashboard", "manageMenu"].includes(page) && (
-        <>
-          <p>⚠️ You must be logged in to access this page.</p>
-          <button onClick={() => navigate("login")}>Go to Login</button>
-        </>
-      )}
+      {!user &&
+        [
+          "userDashboard",
+          "userOrders",
+          "adminDashboard",
+          "manageMenu",
+        ].includes(page) && (
+          <>
+            <p>⚠️ You must be logged in to access this page.</p>
+            <button onClick={() => navigate("login")}>Go to Login</button>
+          </>
+        )}
     </div>
   );
 }

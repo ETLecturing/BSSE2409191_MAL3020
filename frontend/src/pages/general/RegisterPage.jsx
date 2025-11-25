@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+// 🔥 Auto-detect LAN IP for backend API
+const API_BASE = `http://${window.location.hostname}:5000/api`;
 
 export default function RegisterPage({ navigate }) {
   const [form, setForm] = useState({
@@ -14,7 +15,7 @@ export default function RegisterPage({ navigate }) {
   const [msg, setMsg] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
-  // Password validation function
+  // Password validation rules
   const validatePassword = (password) => {
     const rules = [
       { regex: /.{8,}/, message: "At least 8 characters" },
@@ -24,13 +25,13 @@ export default function RegisterPage({ navigate }) {
       { regex: /[^A-Za-z0-9]/, message: "At least 1 special character" },
     ];
 
-    const failed = rules.filter((rule) => !rule.regex.test(password));
+    const failed = rules.filter((r) => !r.regex.test(password));
 
     if (failed.length === 0) return "";
     return "Password requires: " + failed.map((f) => f.message).join(", ");
   };
 
-  // Handle typing
+  // Handle change
   const handleChange = (key, value) => {
     setForm({ ...form, [key]: value });
 
@@ -45,19 +46,20 @@ export default function RegisterPage({ navigate }) {
     e.preventDefault();
     setMsg("");
 
-    // Client-side password checks
+    // Validate password rules
     if (passwordError) {
       setMsg("❌ Fix password requirements first.");
       return;
     }
 
+    // Confirm password check
     if (form.password !== form.confirmPassword) {
       setMsg("❌ Passwords do not match.");
       return;
     }
 
     try {
-      const res = await fetch(`${API}/auth/register`, {
+      const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

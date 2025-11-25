@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+// 🔥 Auto-detect LAN IP for backend (same for every device)
+const API_BASE = `http://${window.location.hostname}:5000/api`;
 
 export default function LoginPage({ setUser, navigate }) {
   const [email, setEmail] = useState("");
@@ -15,7 +16,7 @@ export default function LoginPage({ setUser, navigate }) {
 
     try {
       // 1. Login request
-      const res = await fetch(`${API}/auth/login`, {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -24,16 +25,15 @@ export default function LoginPage({ setUser, navigate }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
 
-      // 2. Store token
+      // 2. Save token
       localStorage.setItem("token", data.token);
 
-      // 3. Fetch logged-in user
-      const profileRes = await fetch(`${API}/auth/me`, {
+      // 3. Fetch logged-in profile
+      const profileRes = await fetch(`${API_BASE}/auth/me`, {
         headers: { Authorization: `Bearer ${data.token}` },
       });
 
       const me = await profileRes.json();
-
       if (!profileRes.ok) throw new Error(me.error);
 
       // 4. Save user globally
@@ -44,7 +44,7 @@ export default function LoginPage({ setUser, navigate }) {
         role: me.role,
       });
 
-      // 5. Navigate correctly (NO "/user" or "/admin")
+      // 5. Navigate (no slashes)
       if (me.role === "admin" || me.role === "worker") {
         navigate("adminDashboard");
       } else {

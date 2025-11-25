@@ -1,0 +1,39 @@
+name: RTO Docker CI/CD
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build-test-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm install
+
+      - name: Run Backend Tests
+        working-directory: backend
+        env:
+          MONGO_URI: mongodb://localhost:27017/testdb
+        run: npm test --if-present
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Run Frontend Tests
+        working-directory: frontend
+        run: npm test --if-present
+
+      - name: Stop Containers
+        run: docker compose down
+
+      - name: Build and Start Containers
+        run: docker compose up -d --build

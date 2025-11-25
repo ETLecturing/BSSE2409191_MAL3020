@@ -15,6 +15,7 @@ It demonstrates a dynamic web system that allows users to browse menu items, pla
 - Admin panel for managing menu and orders
 - MongoDB database for persistent storage
 - Responsive front-end interface
+- Adding CICD
 
 ## Technology Stack
 

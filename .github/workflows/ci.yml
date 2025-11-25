@@ -14,23 +14,37 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # Windows-compatible CLEANUP using PowerShell
+      # --------------------------------------------------
       - name: Remove Old Containers
-        shell: pwsh
+        shell: powershell
         run: |
-          echo "Removing old containers..."
-          docker ps -a --format "{{.Names}}" | ForEach-Object {
-            if ($_ -in @("rto-mongo", "rto-backend", "rto-frontend")) {
-              docker rm -f $_
+          Write-Host "Removing old containers..."
+
+          $containers = docker ps -a --format "{{.Names}}"
+          foreach ($c in $containers) {
+            if ($c -in @("rto-mongo", "rto-backend", "rto-frontend")) {
+              Write-Host "Removing container: $c"
+              docker rm -f $c
             }
           }
+
+          Write-Host "Pruning unused containers..."
           docker container prune -f
 
       - name: Cleanup Networks & Volumes
-        shell: pwsh
+        shell: powershell
         run: |
+          Write-Host "Pruning networks..."
           docker network prune -f
+
+          Write-Host "Pruning volumes..."
           docker volume prune -f
 
+      # --------------------------------------------------
+      # FRONTEND INSTALL + TESTS
+      # --------------------------------------------------
       - name: Install Frontend Dependencies
         working-directory: frontend
         run: npm install
@@ -39,6 +53,9 @@ jobs:
         working-directory: frontend
         run: npm test --if-present
 
+      # --------------------------------------------------
+      # BACKEND INSTALL + TESTS
+      # --------------------------------------------------
       - name: Install Backend Dependencies
         working-directory: backend
         run: npm install
@@ -47,10 +64,17 @@ jobs:
         working-directory: backend
         run: npm test --if-present
 
+      # --------------------------------------------------
+      # DEPLOYMENT (DOCKER COMPOSE)
+      # --------------------------------------------------
       - name: Docker Compose Down
-        run: docker compose down || exit 0
+        shell: powershell
+        run: |
+          docker compose down
+        continue-on-error: true # prevent failure if nothing is running
 
       - name: Docker Compose Up (Build & Deploy)
+        shell: powershell
         run: docker compose up -d --build
 
       - name: Check Running Containers

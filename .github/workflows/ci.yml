@@ -11,73 +11,47 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # ---------------------------------------------
-      # 1. Checkout the latest repository code
-      # ---------------------------------------------
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ---------------------------------------------
-      # 2. Clean UP old Docker containers (prevents name conflicts)
-      # ---------------------------------------------
       - name: Remove Old Containers
+        shell: pwsh
         run: |
-          echo "Removing old containers to prevent name conflicts..."
-          docker rm -f rto-mongo 2>/dev/null || true
-          docker rm -f rto-backend 2>/dev/null || true
-          docker rm -f rto-frontend 2>/dev/null || true
-          docker rm -f $(docker ps -aq) 2>/dev/null || true
+          echo "Removing old containers..."
+          docker ps -a --format "{{.Names}}" | ForEach-Object {
+            if ($_ -in @("rto-mongo", "rto-backend", "rto-frontend")) {
+              docker rm -f $_
+            }
+          }
+          docker container prune -f
 
-      # ---------------------------------------------
-      # 3. Prune networks & volumes
-      # ---------------------------------------------
       - name: Cleanup Networks & Volumes
+        shell: pwsh
         run: |
-          docker network prune -f || true
-          docker volume prune -f || true
+          docker network prune -f
+          docker volume prune -f
 
-      # ---------------------------------------------
-      # 4. Install FRONTEND dependencies
-      # ---------------------------------------------
       - name: Install Frontend Dependencies
         working-directory: frontend
         run: npm install
 
-      # ---------------------------------------------
-      # 5. Run Vitest FRONTEND Tests
-      # ---------------------------------------------
       - name: Run Frontend Tests
         working-directory: frontend
         run: npm test --if-present
 
-      # ---------------------------------------------
-      # 6. Install BACKEND dependencies
-      # ---------------------------------------------
       - name: Install Backend Dependencies
         working-directory: backend
         run: npm install
 
-      # ---------------------------------------------
-      # 7. Run BACKEND API tests (Mocha)
-      # ---------------------------------------------
       - name: Run Backend Tests
         working-directory: backend
         run: npm test --if-present
 
-      # ---------------------------------------------
-      # 8. Stop any previous containers
-      # ---------------------------------------------
       - name: Docker Compose Down
-        run: docker compose down || true
+        run: docker compose down || exit 0
 
-      # ---------------------------------------------
-      # 9. Build and Start production containers
-      # ---------------------------------------------
       - name: Docker Compose Up (Build & Deploy)
         run: docker compose up -d --build
 
-      # ---------------------------------------------
-      # 10. Confirm running containers
-      # ---------------------------------------------
       - name: Check Running Containers
         run: docker ps -a

@@ -73,7 +73,7 @@ export default function HomePage({ user }) {
             {user.role === "customer" && (
               <div style={card}>
                 <h3>🧾 Dashbaord</h3>
-                <p>View your ongoing, completed, or canceled orders easily.</p>
+                <p>View your ongoing, completed, or canceled orders easily..</p>
               </div>
             )}
             {(user.role === "admin" || user.role === "worker") && (

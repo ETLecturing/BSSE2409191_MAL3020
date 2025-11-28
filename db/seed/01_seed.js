@@ -115,3 +115,6 @@ db.orders.insertOne(order);
 print(
   `[seed] Inserted users: ${users.length}, menuitems: ${menuItems.length}, orders: 1`
 );
+
+
+

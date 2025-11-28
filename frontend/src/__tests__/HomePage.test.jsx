@@ -28,9 +28,9 @@ describe("HomePage Component", () => {
       screen.getByText("Hi Zul! You are logged in as customer.")
     ).toBeInTheDocument();
 
-    // Customer should see their dashboard card
+    // note: Customer should see their dashboard card
     expect(
-      screen.getByText(/🧾 Dashbaord/i) // note: your spelling is Dashbaord
+      screen.getByText(/🧾 Dashbaord/i) 
     ).toBeInTheDocument();
   });
 
